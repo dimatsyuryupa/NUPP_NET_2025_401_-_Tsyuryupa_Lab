@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Library.Common
 {
-    // базовий абстрактний клас Person
+    // Базовий абстрактний клас Person
     public abstract class Person
     {
         public Guid Id { get; set; }
@@ -82,10 +82,47 @@ namespace Library.Common
         }
 
         public static event Action<string> OnBookAdded;
+        public static void RaiseBookAdded(string message) => OnBookAdded?.Invoke(message);
 
-        public static void RaiseBookAdded(string message)
+        public static Book CreateNew(Author author)
         {
-            OnBookAdded?.Invoke(message);
+            Random rnd = new Random(Guid.NewGuid().GetHashCode());
+            return new Book(
+                $"Книга-{rnd.Next(1, 10000)}",
+                $"Жанр-{rnd.Next(1, 10)}",
+                author
+            );
+        }
+    }
+
+    // Новий клас Bus
+    public class Bus
+    {
+        public Guid Id { get; set; }
+        public string Model { get; set; }
+        public int Seats { get; set; }
+        public int Speed { get; set; }
+
+        public Bus()
+        {
+            Id = Guid.NewGuid();
+        }
+
+        public void ShowInfo()
+        {
+            Console.WriteLine($"Автобус: {Model}, Місць: {Seats}, Швидкість: {Speed} км/год");
+        }
+
+        // Створення нового випадкового автобуса
+        public static Bus CreateNew()
+        {
+            Random rnd = new Random(Guid.NewGuid().GetHashCode());
+            return new Bus
+            {
+                Model = $"Bus-{rnd.Next(1000, 9999)}",
+                Seats = rnd.Next(20, 60),
+                Speed = rnd.Next(60, 120)
+            };
         }
     }
 
@@ -107,9 +144,6 @@ namespace Library.Common
 
     public static class LibraryExtensions
     {
-        public static void PrintWithStars(this string text)
-        {
-            Console.WriteLine($"*** {text} ***");
-        }
+        public static void PrintWithStars(this string text) => Console.WriteLine($"*** {text} ***");
     }
 }

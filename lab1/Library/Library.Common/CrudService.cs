@@ -1,54 +1,106 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Library.Common
 {
-    public interface ICrudService<T>
+    public interface ICrudServiceAsync<T> : IEnumerable<T>
     {
-        void Create(T element);
-        T Read(Guid id);
-        IEnumerable<T> ReadAll();
-        void Update(T element);
-        void Remove(T element);
+        Task<bool> CreateAsync(T element);
+        Task<T> ReadAsync(Guid id);
+        Task<IEnumerable<T>> ReadAllAsync();
+        Task<IEnumerable<T>> ReadAllAsync(int page, int amount);
+        Task<bool> UpdateAsync(T element);
+        Task<bool> RemoveAsync(T element);
+        Task<bool> SaveAsync();
     }
 
-    public class CrudService<T> : ICrudService<T> where T : class
+    public class CrudServiceAsync<T> : ICrudServiceAsync<T> where T : class
     {
-        private readonly List<T> _data = new List<T>();
+        private readonly ConcurrentDictionary<Guid, T> _data = new();
+        private readonly SemaphoreSlim _saveLock = new(1, 1);
+        private readonly string _filePath;
 
-        public void Create(T element)
+        public CrudServiceAsync(string filePath)
         {
-            _data.Add(element);
+            _filePath = filePath;
         }
 
-        public T Read(Guid id)
+        public async Task<bool> CreateAsync(T element)
         {
-            var prop = typeof(T).GetProperty("Id");
-            return _data.FirstOrDefault(x => (Guid)prop.GetValue(x) == id);
+            var prop = typeof(T).GetProperty("Id") ?? throw new Exception("Клас T повинен мати властивість Id типу Guid");
+            Guid id = (Guid)prop.GetValue(element);
+            bool added = _data.TryAdd(id, element);
+            await Task.Yield();
+            return added;
         }
 
-        public IEnumerable<T> ReadAll()
+        public async Task<T> ReadAsync(Guid id)
         {
-            return _data;
+            _data.TryGetValue(id, out T element);
+            await Task.Yield();
+            return element;
         }
 
-        public void Update(T element)
+        public async Task<IEnumerable<T>> ReadAllAsync()
         {
-            var prop = typeof(T).GetProperty("Id");
+            await Task.Yield();
+            return _data.Values;
+        }
+
+        public async Task<IEnumerable<T>> ReadAllAsync(int page, int amount)
+        {
+            await Task.Yield();
+            return _data.Values.Skip((page - 1) * amount).Take(amount);
+        }
+
+        public async Task<bool> UpdateAsync(T element)
+        {
+            var prop = typeof(T).GetProperty("Id") ?? throw new Exception("Клас T повинен мати властивість Id типу Guid");
             Guid id = (Guid)prop.GetValue(element);
 
-            var old = Read(id);
-            if (old != null)
+            bool updated = false;
+            if (_data.ContainsKey(id))
             {
-                _data.Remove(old);
-                _data.Add(element);
+                _data[id] = element;
+                updated = true;
+            }
+            await Task.Yield();
+            return updated;
+        }
+
+        public async Task<bool> RemoveAsync(T element)
+        {
+            var prop = typeof(T).GetProperty("Id") ?? throw new Exception("Клас T повинен мати властивість Id типу Guid");
+            Guid id = (Guid)prop.GetValue(element);
+
+            bool removed = _data.TryRemove(id, out _);
+            await Task.Yield();
+            return removed;
+        }
+
+        public async Task<bool> SaveAsync()
+        {
+            await _saveLock.WaitAsync();
+            try
+            {
+                string json = JsonSerializer.Serialize(_data.Values);
+                await File.WriteAllTextAsync(_filePath, json);
+                return true;
+            }
+            finally
+            {
+                _saveLock.Release();
             }
         }
 
-        public void Remove(T element)
-        {
-            _data.Remove(element);
-        }
+        public IEnumerator<T> GetEnumerator() => _data.Values.GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => _data.Values.GetEnumerator();
     }
 }
