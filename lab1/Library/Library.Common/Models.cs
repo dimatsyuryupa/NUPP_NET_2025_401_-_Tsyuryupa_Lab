@@ -1,18 +1,17 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Threading;
 
 namespace Library.Common
 {
-    // Базовий абстрактний клас Person
-    public abstract class Person
+    // ===== Люди =====
+    public abstract class Person : IEntity
     {
-        public Guid Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
         public string FullName { get; set; }
         public int Age { get; set; }
 
-        public Person(string fullName, int age)
+        protected Person(string fullName, int age)
         {
-            Id = Guid.NewGuid();
             FullName = fullName;
             Age = age;
         }
@@ -32,10 +31,8 @@ namespace Library.Common
             BooksPublished = booksPublished;
         }
 
-        public override void ShowInfo()
-        {
+        public override void ShowInfo() =>
             Console.WriteLine($"Автор: {FullName}, Вік: {Age}, Книг: {BooksPublished}");
-        }
     }
 
     public class Librarian : Person
@@ -50,100 +47,86 @@ namespace Library.Common
             Experience = experience;
         }
 
-        public override void ShowInfo()
-        {
+        public override void ShowInfo() =>
             Console.WriteLine($"Бібліотекар: {FullName}, Посада: {Position}, Досвід: {Experience} років");
-        }
     }
 
-    public class Book
+    // ===== Книги =====
+    public class Book : IEntity
     {
-        public Guid Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
         public string Title { get; set; }
         public string Genre { get; set; }
         public Author Author { get; set; }
 
         public static int TotalBooks;
+        private static readonly Random rnd = new Random();
 
-        static Book() { TotalBooks = 0; }
+        public static event Action<string> OnBookAdded;
 
         public Book(string title, string genre, Author author)
         {
-            Id = Guid.NewGuid();
             Title = title;
             Genre = genre;
             Author = author;
-            TotalBooks++;
+            Interlocked.Increment(ref TotalBooks);
         }
 
-        public void ShowInfo()
-        {
+        public void ShowInfo() =>
             Console.WriteLine($"Книга: {Title}, Жанр: {Genre}, Автор: {Author.FullName}");
-        }
-
-        public static event Action<string> OnBookAdded;
-        public static void RaiseBookAdded(string message) => OnBookAdded?.Invoke(message);
 
         public static Book CreateNew(Author author)
         {
-            Random rnd = new Random(Guid.NewGuid().GetHashCode());
-            return new Book(
+            var book = new Book(
                 $"Книга-{rnd.Next(1, 10000)}",
                 $"Жанр-{rnd.Next(1, 10)}",
                 author
             );
+            OnBookAdded?.Invoke($"Додано книгу: {book.Title}");
+            return book;
         }
     }
 
-    // Новий клас Bus
-    public class Bus
+    // ===== Автобуси =====
+    public class Bus : IEntity
     {
-        public Guid Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
         public string Model { get; set; }
         public int Seats { get; set; }
         public int Speed { get; set; }
 
-        public Bus()
-        {
-            Id = Guid.NewGuid();
-        }
+        private static readonly Random rnd = new Random();
 
-        public void ShowInfo()
-        {
+        public void ShowInfo() =>
             Console.WriteLine($"Автобус: {Model}, Місць: {Seats}, Швидкість: {Speed} км/год");
-        }
 
-        // Створення нового випадкового автобуса
-        public static Bus CreateNew()
+        public static Bus CreateNew() => new Bus
         {
-            Random rnd = new Random(Guid.NewGuid().GetHashCode());
-            return new Bus
-            {
-                Model = $"Bus-{rnd.Next(1000, 9999)}",
-                Seats = rnd.Next(20, 60),
-                Speed = rnd.Next(60, 120)
-            };
-        }
+            Model = $"Bus-{rnd.Next(1000, 9999)}",
+            Seats = rnd.Next(20, 60),
+            Speed = rnd.Next(60, 120)
+        };
     }
 
-    public class LibraryCard
+    // ===== Картка бібліотеки =====
+    public class LibraryCard : IEntity
     {
-        public Guid Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
         public string Number { get; set; }
         public Person Owner { get; set; }
-        public DateTime IssuedDate { get; set; }
+        public DateTime IssuedDate { get; set; } = DateTime.Now;
 
         public LibraryCard(string number, Person owner)
         {
-            Id = Guid.NewGuid();
             Number = number;
             Owner = owner;
-            IssuedDate = DateTime.Now;
         }
     }
 
+    // ===== Розширення =====
     public static class LibraryExtensions
     {
-        public static void PrintWithStars(this string text) => Console.WriteLine($"*** {text} ***");
+        public static void PrintWithStars(this string text) =>
+            Console.WriteLine($"*** {text} ***");
     }
 }
