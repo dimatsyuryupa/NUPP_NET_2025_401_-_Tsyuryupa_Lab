@@ -1,95 +1,137 @@
-﻿using System;
+﻿using Library.Common;
+using Library.Infrastructure;
+using Library.Infrastructure.Repositories;
+using Library.Infrastructure.Services;
+using Microsoft.EntityFrameworkCore;
+using System;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
-using Library.Common;
 
-namespace Library.ConsoleApp
+namespace LibraryApp
 {
     class Program
     {
-        static async Task Main(string[] args)
+        static async Task Main()
         {
-            Book.OnBookAdded += (msg) => msg.PrintWithStars();
 
-            var author = new Author("Тарас Шевченко", 47, "Українець", 20);
-            var librarian = new Librarian("Іван Франко", 50, "Головний бібліотекар", 25);
+            // Налаштування контексту SQLite
+            var options = new DbContextOptionsBuilder<LibraryContext>()
+                .UseSqlite(@"Data Source=D:\.NET\lab1\Library\Library.Console\library.db")
+                .Options;
 
-            var bookService = new CrudServiceAsync<Book>("books.json");
-            var busService = new CrudServiceAsync<Bus>("buses.json");
+            using var context = new LibraryContext(options);
 
-            int totalBooks = 1000;
-            int totalBuses = 1000;
-            int parallelTasks = 8;
-            int chunkSizeBooks = totalBooks / parallelTasks;
-            int chunkSizeBuses = totalBuses / parallelTasks;
+            var authorRepo = new Repository<Author>(context);
+            var bookRepo = new Repository<Book>(context);
+            var busRepo = new Repository<Bus>(context);
 
-            AutoResetEvent autoEvent = new AutoResetEvent(false);
-            object consoleLock = new object();
+            var authorService = new CrudServiceAsync<Author>(authorRepo);
+            var bookService = new CrudServiceAsync<Book>(bookRepo);
+            var busService = new CrudServiceAsync<Bus>(busRepo);
 
-            // Паралельне створення книг та автобусів
-            Task[] tasks = new Task[parallelTasks * 2];
-            for (int i = 0; i < parallelTasks; i++)
+            while (true)
             {
-                tasks[i] = Task.Run(async () =>
+                Console.WriteLine("\n--- Меню ---");
+                Console.WriteLine("1. Додати автора");
+                Console.WriteLine("2. Додати книгу");
+                Console.WriteLine("3. Додати автобус");
+                Console.WriteLine("4. Показати всі книги");
+                Console.WriteLine("5. Видалити книгу");
+                Console.WriteLine("0. Вийти");
+
+                Console.Write("Виберіть дію: ");
+                var input = Console.ReadLine();
+
+                switch (input)
                 {
-                    for (int j = 0; j < chunkSizeBooks; j++)
-                    {
-                        var book = Book.CreateNew(author);
+                    case "1":
+                        Console.Write("Введіть ім'я автора: ");
+                        string name = Console.ReadLine();
+                        Console.Write("Вік: ");
+                        int age = int.Parse(Console.ReadLine());
+                        Console.Write("Національність: ");
+                        string nationality = Console.ReadLine();
+                        Console.Write("Кількість книг: ");
+                        int bookCount = int.Parse(Console.ReadLine());
+
+                        var author = new Author(name, age, nationality, bookCount);
+                        await authorService.CreateAsync(author);
+                        Console.WriteLine("Автор доданий");
+                        break;
+
+                    case "2":
+                        var authors = (await authorService.ReadAllAsync()).ToList();
+                        if (!authors.Any())
+                        {
+                            Console.WriteLine("Спочатку додайте автора!");
+                            break;
+                        }
+                        Console.WriteLine("Оберіть автора (індекс):");
+                        for (int i = 0; i < authors.Count; i++)
+                            Console.WriteLine($"{i}: {authors[i].FullName}");
+                        int index = int.Parse(Console.ReadLine());
+                        Console.Write("Введіть назву книги: ");
+                        string title = Console.ReadLine() ?? "Без назви";
+                        Console.Write("Введіть жанр книги: ");
+                        string genre = Console.ReadLine() ?? "Невідомий";
+                        var book = Book.CreateNew(title, genre, authors[index]);
                         await bookService.CreateAsync(book);
+                        Console.WriteLine("Книга додана");
+                        break;
 
-                        lock (consoleLock)
-                            Book.RaiseBookAdded($"Додано книгу: {book.Title}");
-                    }
-                    autoEvent.Set();
-                });
-
-                tasks[i + parallelTasks] = Task.Run(async () =>
-                {
-                    for (int j = 0; j < chunkSizeBuses; j++)
-                    {
+                    case "3":
                         var bus = Bus.CreateNew();
                         await busService.CreateAsync(bus);
-                    }
-                    autoEvent.Set();
-                });
+                        Console.WriteLine("Автобус доданий");
+                        break;
+
+                    case "4":
+                        var books = await context.Books.Include(b => b.Author).ToListAsync();
+                        if (!books.Any()) { Console.WriteLine("Книг немає."); break; }
+                        foreach (var b in books)
+                            b.ShowInfo();
+                        break;
+
+                    case "5":
+                        var allBooks = (await bookService.ReadAllAsync()).ToList();
+                        if (!allBooks.Any())
+                        {
+                            Console.WriteLine("Книг немає.");
+                            break;
+                        }
+
+                        Console.WriteLine("Список книг:");
+                        foreach (var b in allBooks)
+                            Console.WriteLine($"{b.Id} - {b.Title} ({b.Genre})");
+
+                        Console.Write("Введіть Id книги для видалення: ");
+                        string inputId = Console.ReadLine();
+
+                        if (!int.TryParse(inputId, out int bookId))
+                        {
+                            Console.WriteLine("Невірний формат Id");
+                            break;
+                        }
+
+                        var bookToDelete = allBooks.FirstOrDefault(b => b.Id == bookId);
+                        if (bookToDelete == null)
+                        {
+                            Console.WriteLine("Книга з таким Id не знайдена");
+                            break;
+                        }
+
+                        await bookService.RemoveAsync(bookToDelete);
+                        Console.WriteLine($"Книга \"{bookToDelete.Title}\" видалена ✅");
+                        break;
+
+                    case "0":
+                        return; // вихід з програми
+
+                    default:
+                        Console.WriteLine("Невірний вибір, спробуйте ще раз.");
+                        break;
+                }
             }
-
-            await Task.WhenAll(tasks);
-
-            for (int i = 0; i < parallelTasks * 2; i++)
-                autoEvent.WaitOne();
-
-            // Вивід перших 20 книг
-            var books = (await bookService.ReadAllAsync()).ToList();
-            Console.WriteLine($"\nУ бібліотеці ({books.Count} книг):");
-            foreach (var b in books.Take(20))
-                b.ShowInfo();
-
-            // Статистика по автобуcах
-            var buses = (await busService.ReadAllAsync()).ToList();
-            Console.WriteLine($"\nЗагальна кількість автобусів: {buses.Count}");
-            Console.WriteLine($"Мін. місць: {buses.Min(b => b.Seats)}, Макс. місць: {buses.Max(b => b.Seats)}, Середнє: {buses.Average(b => b.Seats):F2}");
-            Console.WriteLine($"Мін. швидкість: {buses.Min(b => b.Speed)}, Макс. швидкість: {buses.Max(b => b.Speed)}, Середнє: {buses.Average(b => b.Speed):F2}");
-
-            // Приклад UpdateAsync для книги
-            var firstBook = books.First();
-            firstBook.Title = "Оновлена книга";
-            bool updated = await bookService.UpdateAsync(firstBook);
-            Console.WriteLine($"\nОновлення книги '{firstBook.Id}': {(updated ? "Успішно" : "Не вдалося")}");
-
-            // Приклад RemoveAsync для автобуса
-            var firstBus = buses.First();
-            bool removed = await busService.RemoveAsync(firstBus);
-            Console.WriteLine($"Видалення автобуса '{firstBus.Id}': {(removed ? "Успішно" : "Не вдалося")}");
-
-            // Збереження даних у файл
-            await bookService.SaveAsync();
-            await busService.SaveAsync();
-            Console.WriteLine("\nДані збережено у books.json та buses.json");
-
-            var card = new LibraryCard("LC-001", librarian);
-            Console.WriteLine($"\nКартка: {card.Number}, Власник: {card.Owner.FullName}");
         }
     }
 }

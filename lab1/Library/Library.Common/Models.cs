@@ -1,149 +1,149 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace Library.Common
 {
-    // Базовий абстрактний клас Person
-    public abstract class Person
+
+    // ===== Люди =====
+    public abstract class Person : IEntity
     {
-        public Guid Id { get; set; }
-        public string FullName { get; set; }
+        public int Id { get; set; }
+        public string FullName { get; set; } = string.Empty;
         public int Age { get; set; }
 
-        public Person(string fullName, int age)
+        public List<LibraryCard> LibraryCards { get; set; } = new();
+
+        protected Person(string fullName, int age)
         {
-            Id = Guid.NewGuid();
-            FullName = fullName;
+            FullName = fullName ?? throw new ArgumentNullException(nameof(fullName));
             Age = age;
         }
+
+        protected Person() { }
 
         public abstract void ShowInfo();
     }
 
     public class Author : Person
     {
-        public string Nationality { get; set; }
+        public string Nationality { get; set; } = string.Empty;
         public int BooksPublished { get; set; }
+
+        public List<Book> Books { get; set; } = new();
 
         public Author(string fullName, int age, string nationality, int booksPublished)
             : base(fullName, age)
         {
-            Nationality = nationality;
+            Nationality = nationality ?? throw new ArgumentNullException(nameof(nationality));
             BooksPublished = booksPublished;
         }
 
-        public override void ShowInfo()
-        {
+        protected Author() : base() { }
+
+        public override void ShowInfo() =>
             Console.WriteLine($"Автор: {FullName}, Вік: {Age}, Книг: {BooksPublished}");
-        }
     }
 
     public class Librarian : Person
     {
-        public string Position { get; set; }
+        public string Position { get; set; } = string.Empty;
         public int Experience { get; set; }
 
         public Librarian(string fullName, int age, string position, int experience)
             : base(fullName, age)
         {
-            Position = position;
+            Position = position ?? throw new ArgumentNullException(nameof(position));
             Experience = experience;
         }
 
-        public override void ShowInfo()
-        {
+        protected Librarian() : base() { }
+
+        public override void ShowInfo() =>
             Console.WriteLine($"Бібліотекар: {FullName}, Посада: {Position}, Досвід: {Experience} років");
-        }
     }
 
-    public class Book
+    // ===== Книги =====
+    public class Book : IEntity
     {
-        public Guid Id { get; set; }
-        public string Title { get; set; }
-        public string Genre { get; set; }
-        public Author Author { get; set; }
+        public int Id { get; set; }                // int, автогенерується EF
+        public string Title { get; set; } = string.Empty;
+        public string Genre { get; set; } = string.Empty;
 
-        public static int TotalBooks;
+        public int AuthorId { get; set; }          // int, як Id автора
+        public Author? Author { get; set; }        // навігаційна властивість
 
-        static Book() { TotalBooks = 0; }
+        protected Book() { }
 
         public Book(string title, string genre, Author author)
         {
-            Id = Guid.NewGuid();
-            Title = title;
-            Genre = genre;
-            Author = author;
-            TotalBooks++;
+            Title = title ?? throw new ArgumentNullException(nameof(title));
+            Genre = genre ?? throw new ArgumentNullException(nameof(genre));
+            Author = author ?? throw new ArgumentNullException(nameof(author));
+            AuthorId = author.Id;                  // встановлюємо FK відразу
         }
 
-        public void ShowInfo()
-        {
-            Console.WriteLine($"Книга: {Title}, Жанр: {Genre}, Автор: {Author.FullName}");
-        }
+        public void ShowInfo() =>
+            Console.WriteLine($"Книга: {Title}, Жанр: {Genre}, Автор: {Author?.FullName ?? "—"}");
 
-        public static event Action<string> OnBookAdded;
-        public static void RaiseBookAdded(string message) => OnBookAdded?.Invoke(message);
-
-        public static Book CreateNew(Author author)
-        {
-            Random rnd = new Random(Guid.NewGuid().GetHashCode());
-            return new Book(
-                $"Книга-{rnd.Next(1, 10000)}",
-                $"Жанр-{rnd.Next(1, 10)}",
-                author
-            );
-        }
+        public static Book CreateNew(string title, string genre, Author author) =>
+            new Book(title, genre, author);
     }
 
-    // Новий клас Bus
-    public class Bus
+    // ===== Автобуси =====
+    public class Bus : IEntity
     {
-        public Guid Id { get; set; }
-        public string Model { get; set; }
+        public int Id { get; set; }
+        public string Model { get; set; } = string.Empty;
         public int Seats { get; set; }
         public int Speed { get; set; }
 
-        public Bus()
+        private static readonly Random rnd = new();
+
+        protected Bus() { }
+
+        public Bus(string model, int seats, int speed)
         {
-            Id = Guid.NewGuid();
+            Model = model ?? throw new ArgumentNullException(nameof(model));
+            Seats = seats;
+            Speed = speed;
         }
 
-        public void ShowInfo()
-        {
+        public static Bus CreateNew() => new Bus(
+            $"Bus-{rnd.Next(1000, 9999)}",
+            rnd.Next(20, 60),
+            rnd.Next(60, 120)
+        );
+
+        public void ShowInfo() =>
             Console.WriteLine($"Автобус: {Model}, Місць: {Seats}, Швидкість: {Speed} км/год");
-        }
-
-        // Створення нового випадкового автобуса
-        public static Bus CreateNew()
-        {
-            Random rnd = new Random(Guid.NewGuid().GetHashCode());
-            return new Bus
-            {
-                Model = $"Bus-{rnd.Next(1000, 9999)}",
-                Seats = rnd.Next(20, 60),
-                Speed = rnd.Next(60, 120)
-            };
-        }
     }
 
-    public class LibraryCard
+    // ===== Картка бібліотеки =====
+    public class LibraryCard : IEntity
     {
-        public Guid Id { get; set; }
-        public string Number { get; set; }
-        public Person Owner { get; set; }
-        public DateTime IssuedDate { get; set; }
+        public int Id { get; set; }
+        public string Number { get; set; } = string.Empty;
+
+        public int OwnerId { get; set; }
+        public Person? Owner { get; set; }
+
+        public DateTime IssuedDate { get; set; } = DateTime.Now;
 
         public LibraryCard(string number, Person owner)
         {
-            Id = Guid.NewGuid();
-            Number = number;
-            Owner = owner;
-            IssuedDate = DateTime.Now;
+            Number = number ?? throw new ArgumentNullException(nameof(number));
+            Owner = owner ?? throw new ArgumentNullException(nameof(owner));
+            OwnerId = owner.Id;
         }
+
+        protected LibraryCard() { }
     }
 
+    // ===== Розширення =====
     public static class LibraryExtensions
     {
-        public static void PrintWithStars(this string text) => Console.WriteLine($"*** {text} ***");
+        public static void PrintWithStars(this string text) =>
+            Console.WriteLine($"*** {text} ***");
     }
 }
