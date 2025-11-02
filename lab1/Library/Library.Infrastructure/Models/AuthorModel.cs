@@ -1,32 +1,31 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Library.Infrastructure.Models
 {
     public class Author
     {
-        public Guid Id { get; set; } = Guid.NewGuid();
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int Id { get; set; }
+
         public string FullName { get; set; } = string.Empty;
         public int Age { get; set; }
         public string Nationality { get; set; } = string.Empty;
         public int BooksPublished { get; set; }
 
-        // Один-до-багатьох: один автор має багато книг
         public List<Book> Books { get; set; } = new();
 
-        // EF Core порожній конструктор
-        public Author() { }
+        protected Author() { }
 
-        // Зручний конструктор для створення в коді
         public Author(string fullName, int age, string nationality, int booksPublished)
         {
-            FullName = fullName;
+            FullName = fullName ?? throw new ArgumentNullException(nameof(fullName));
             Age = age;
-            Nationality = nationality;
+            Nationality = nationality ?? throw new ArgumentNullException(nameof(nationality));
             BooksPublished = booksPublished;
         }
-
-        public void ShowInfo() =>
-            Console.WriteLine($"Автор: {FullName}, Вік: {Age}, Книг: {BooksPublished}");
     }
 }

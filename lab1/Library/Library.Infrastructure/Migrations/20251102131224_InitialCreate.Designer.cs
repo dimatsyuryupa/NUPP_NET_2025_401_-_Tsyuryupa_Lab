@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Library.Infrastructure.Migrations
 {
     [DbContext(typeof(LibraryContext))]
-    [Migration("20251030122412_InitialCreate")]
+    [Migration("20251102131224_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -22,15 +22,12 @@ namespace Library.Infrastructure.Migrations
 
             modelBuilder.Entity("Library.Common.Book", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("INTEGER");
 
-                    b.Property<Guid>("AuthorId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("AuthorId1")
-                        .HasColumnType("TEXT");
+                    b.Property<int>("AuthorId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Genre")
                         .IsRequired()
@@ -46,16 +43,14 @@ namespace Library.Infrastructure.Migrations
 
                     b.HasIndex("AuthorId");
 
-                    b.HasIndex("AuthorId1");
-
                     b.ToTable("Books");
                 });
 
             modelBuilder.Entity("Library.Common.Bus", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Model")
                         .IsRequired()
@@ -75,9 +70,9 @@ namespace Library.Infrastructure.Migrations
 
             modelBuilder.Entity("Library.Common.LibraryCard", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("IssuedDate")
                         .HasColumnType("TEXT");
@@ -87,26 +82,21 @@ namespace Library.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("OwnerId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("PersonId")
-                        .HasColumnType("TEXT");
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerId");
-
-                    b.HasIndex("PersonId");
 
                     b.ToTable("LibraryCards");
                 });
 
             modelBuilder.Entity("Library.Common.Person", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Age")
                         .HasColumnType("INTEGER");
@@ -116,11 +106,18 @@ namespace Library.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("PersonType")
+                        .IsRequired()
+                        .HasMaxLength(13)
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
-                    b.ToTable("Person");
+                    b.ToTable("Persons");
 
-                    b.UseTptMappingStrategy();
+                    b.HasDiscriminator<string>("PersonType").HasValue("Person");
+
+                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("Library.Common.Author", b =>
@@ -135,7 +132,7 @@ namespace Library.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
-                    b.ToTable("Authors", (string)null);
+                    b.HasDiscriminator().HasValue("Author");
                 });
 
             modelBuilder.Entity("Library.Common.Librarian", b =>
@@ -150,20 +147,16 @@ namespace Library.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
-                    b.ToTable("Librarians", (string)null);
+                    b.HasDiscriminator().HasValue("Librarian");
                 });
 
             modelBuilder.Entity("Library.Common.Book", b =>
                 {
                     b.HasOne("Library.Common.Author", "Author")
-                        .WithMany()
+                        .WithMany("Books")
                         .HasForeignKey("AuthorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("Library.Common.Author", null)
-                        .WithMany("Books")
-                        .HasForeignKey("AuthorId1");
 
                     b.Navigation("Author");
                 });
@@ -171,34 +164,12 @@ namespace Library.Infrastructure.Migrations
             modelBuilder.Entity("Library.Common.LibraryCard", b =>
                 {
                     b.HasOne("Library.Common.Person", "Owner")
-                        .WithMany()
+                        .WithMany("LibraryCards")
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Library.Common.Person", null)
-                        .WithMany("LibraryCards")
-                        .HasForeignKey("PersonId");
-
                     b.Navigation("Owner");
-                });
-
-            modelBuilder.Entity("Library.Common.Author", b =>
-                {
-                    b.HasOne("Library.Common.Person", null)
-                        .WithOne()
-                        .HasForeignKey("Library.Common.Author", "Id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Library.Common.Librarian", b =>
-                {
-                    b.HasOne("Library.Common.Person", null)
-                        .WithOne()
-                        .HasForeignKey("Library.Common.Librarian", "Id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Library.Common.Person", b =>

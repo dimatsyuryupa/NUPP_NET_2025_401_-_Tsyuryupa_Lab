@@ -24,7 +24,11 @@ namespace Library.Infrastructure.Services
             return true;
         }
 
-        public async Task<T> ReadAsync(Guid id) => await _repository.GetByIdAsync(id);
+        public async Task<T> ReadAsync(int id)
+        {
+            var entity = await _repository.GetByIdAsync(id);
+            return entity ?? throw new InvalidOperationException($"Entity with ID {id} not found.");
+        }
 
         public async Task<IEnumerable<T>> ReadAllAsync() => await _repository.GetAllAsync();
 

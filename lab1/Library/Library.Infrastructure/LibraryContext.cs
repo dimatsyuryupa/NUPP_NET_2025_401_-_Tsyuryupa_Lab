@@ -10,7 +10,7 @@ namespace Library.Infrastructure
         public DbSet<Book> Books { get; set; }
         public DbSet<Bus> Buses { get; set; }
         public DbSet<LibraryCard> LibraryCards { get; set; }
-
+        public DbSet<Person> Persons { get; set; }
         public LibraryContext() { }
 
         public LibraryContext(DbContextOptions<LibraryContext> options)
@@ -23,29 +23,38 @@ namespace Library.Infrastructure
             if (!optionsBuilder.IsConfigured)
             {
                 // ⚙️ Підключення до локальної бази (SQLite)
-                optionsBuilder.UseSqlite("Data Source=library.db");
+                optionsBuilder.UseSqlite(@"Data Source=D:\.NET\lab1\Library\Library.Console\library.db");
             }
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // === Базовий клас Person ===
+            // === Person (TPH — table-per-hierarchy) ===
             modelBuilder.Entity<Person>(entity =>
             {
                 entity.HasKey(p => p.Id);
                 entity.Property(p => p.FullName).IsRequired().HasMaxLength(100);
             });
 
-            // === Table-per-Type (TPT) для Author і Librarian ===
-            modelBuilder.Entity<Author>().ToTable("Authors");
-            modelBuilder.Entity<Librarian>().ToTable("Librarians");
+            // Налаштування дискримінатора для TPH (одна таблиця Person з типом)
+            modelBuilder.Entity<Person>()
+                .HasDiscriminator<string>("PersonType")
+                .HasValue<Author>("Author")
+                .HasValue<Librarian>("Librarian");
 
+            // === Author ===
             modelBuilder.Entity<Author>(entity =>
             {
                 entity.Property(a => a.Nationality).HasMaxLength(50);
                 entity.Property(a => a.BooksPublished).IsRequired();
+                // Зв'язок Author -> Books
+                entity.HasMany(a => a.Books)
+                      .WithOne(b => b.Author)
+                      .HasForeignKey(b => b.AuthorId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
+            // === Librarian ===
             modelBuilder.Entity<Librarian>(entity =>
             {
                 entity.Property(l => l.Position).HasMaxLength(100);
@@ -59,8 +68,8 @@ namespace Library.Infrastructure
                 entity.Property(b => b.Genre).HasMaxLength(50);
 
                 entity.HasOne(b => b.Author)
-                      .WithMany()
-                      .HasForeignKey("AuthorId")
+                      .WithMany(a => a.Books)
+                      .HasForeignKey(b => b.AuthorId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
@@ -81,8 +90,8 @@ namespace Library.Infrastructure
                 entity.Property(c => c.IssuedDate).IsRequired();
 
                 entity.HasOne(c => c.Owner)
-                      .WithMany()
-                      .HasForeignKey("OwnerId")
+                      .WithMany(p => p.LibraryCards)
+                      .HasForeignKey(c => c.OwnerId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
         }
