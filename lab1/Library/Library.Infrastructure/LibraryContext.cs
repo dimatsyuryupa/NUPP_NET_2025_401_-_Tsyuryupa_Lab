@@ -18,15 +18,6 @@ namespace Library.Infrastructure
         {
         }
 
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {
-            if (!optionsBuilder.IsConfigured)
-            {
-                // ⚙️ Підключення до локальної бази (SQLite)
-                optionsBuilder.UseSqlite(@"Data Source=D:\.NET\lab1\Library\Library.Console\library.db");
-            }
-        }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // === Person (TPH — table-per-hierarchy) ===

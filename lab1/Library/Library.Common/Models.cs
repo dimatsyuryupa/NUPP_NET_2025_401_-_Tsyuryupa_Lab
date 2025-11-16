@@ -39,7 +39,7 @@ namespace Library.Common
             BooksPublished = booksPublished;
         }
 
-        protected Author() : base() { }
+        public Author() : base() { }
 
         public override void ShowInfo() =>
             Console.WriteLine($"Автор: {FullName}, Вік: {Age}, Книг: {BooksPublished}");
