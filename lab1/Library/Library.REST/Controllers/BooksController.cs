@@ -1,6 +1,7 @@
 using Library.Common;
 using Library.Infrastructure.Services;
 using Library.REST.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Library.REST.Controllers
@@ -17,6 +18,7 @@ namespace Library.REST.Controllers
         }
 
         // GET api/books
+        // Доступно всім, авторизація не потрібна
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -25,6 +27,7 @@ namespace Library.REST.Controllers
         }
 
         // GET api/books/{id}
+        // Доступно всім, авторизація не потрібна
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -34,6 +37,8 @@ namespace Library.REST.Controllers
         }
 
         // POST api/books
+        // Створення книги – лише Librarian або Admin
+        [Authorize(Roles = "Librarian,Admin")]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] BookModel model)
         {
@@ -47,6 +52,8 @@ namespace Library.REST.Controllers
         }
 
         // PUT api/books/{id}
+        // Оновлення книги – лише Librarian або Admin
+        [Authorize(Roles = "Librarian,Admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] BookModel model)
         {
@@ -63,6 +70,8 @@ namespace Library.REST.Controllers
         }
 
         // DELETE api/books/{id}
+        // Видалення книги – лише Librarian або Admin
+        [Authorize(Roles = "Librarian,Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -71,6 +80,18 @@ namespace Library.REST.Controllers
 
             await _service.RemoveAsync(book);
             return NoContent();
+        }
+
+        // POST api/books/reserve
+        // Бронювання книги – лише авторизований User
+        [Authorize(Roles = "User,Librarian,Admin")]
+        [HttpPost("reserve/{id}")]
+        public async Task<IActionResult> ReserveBook(int id)
+        {
+            var book = await _service.ReadAsync(id);
+            if (book == null) return NotFound();
+
+            return Ok(new { message = $"Book {book.Title} reserved successfully" });
         }
     }
 }
